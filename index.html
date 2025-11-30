@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Warshall算法求传递闭包</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f7fa;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 30px;
+        }
+        
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+        
+        input, button {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        input {
+            width: 80px;
+        }
+        
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        button:hover {
+            background-color: #2980b9;
+        }
+        
+        button:disabled {
+            background-color: #bdc3c7;
+            cursor: not-allowed;
+        }
+        
+        .matrix-container {
+            overflow-x: auto;
+            margin: 20px 0;
+        }
+        
+        table {
+            border-collapse: collapse;
+            margin: 0 auto;
+        }
+        
+        th, td {
+            width: 40px;
+            height: 40px;
+            text-align: center;
+            border: 1px solid #ddd;
+            font-weight: bold;
+        }
+        
+        th {
+            background-color: #ecf0f1;
+        }
+        
+        td {
+            background-color: white;
+            transition: background-color 0.3s;
+        }
+        
+        .current-column {
+            background-color: #d6dbdf !important;
+        }
+        
+        .source-points {
+            background-color: #f8c471 !important;
+        }
+        
+        .target-points {
+            background-color: #aed6f1 !important;
+        }
+        
+        .new-one {
+            background-color: #a3e4d7 !important;
+            animation: pulse 0.5s;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        
+        .algorithm-info {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            border-left: 4px solid #3498db;
+        }
+        
+        .step-info {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e8f6f3;
+            border-radius: 4px;
+        }
+        
+        .closure-set {
+            margin-top: 15px;
+            padding: 15px;
+            background-color: #fef9e7;
+            border-radius: 4px;
+            border-left: 4px solid #f39c12;
+        }
+        
+        .closure-set h4 {
+            margin-top: 0;
+            color: #d35400;
+        }
+        
+        .set-item {
+            margin: 5px 0;
+            padding: 5px;
+            background-color: #fdebd0;
+            border-radius: 3px;
+        }
+        
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .color-box {
+            width: 20px;
+            height: 20px;
+            border: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Warshall算法求传递闭包</h1>
+        
+        <div class="controls">
+            <label for="matrix-size">矩阵大小:</label>
+            <input type="number" id="matrix-size" min="2" max="10" value="4">
+            <button id="generate-matrix">生成随机矩阵</button>
+            <button id="start-algorithm" disabled>开始算法</button>
+            <button id="next-step" disabled>下一步</button>
+            <button id="auto-play" disabled>自动播放</button>
+            <button id="reset" disabled>重置</button>
+        </div>
+        
+        <div class="matrix-container">
+            <div id="matrix-display"></div>
+        </div>
+        
+        <div class="algorithm-info">
+            <div class="step-info" id="step-description">请先生成矩阵，然后开始算法</div>
+            <div id="algorithm-explanation"></div>
+        </div>
+        
+        <div class="result" id="result" style="display: none;">
+            <h3>传递闭包结果:</h3>
+            <div id="closure-result"></div>
+            <div class="closure-set" id="closure-set">
+                <h4>传递闭包集合:</h4>
+                <div id="set-content"></div>
+            </div>
+        </div>
+        
+        <div class="legend">
+            <div class="legend-item">
+                <div class="color-box" style="background-color: #d6dbdf;"></div>
+                <span>当前处理的列（桥梁点）</span>
+            </div>
+            <div class="legend-item">
+                <div class="color-box" style="background-color: #f8c471;"></div>
+                <span>可以到达桥梁点的源点</span>
+            </div>
+            <div class="legend-item">
+                <div class="color-box" style="background-color: #aed6f1;"></div>
+                <span>桥梁点可以到达的目标点</span>
+            </div>
+            <div class="legend-item">
+                <div class="color-box" style="background-color: #a3e4d7;"></div>
+                <span>新增加的1</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let originalMatrix = [];
+        let currentMatrix = [];
+        let currentStep = 0;
+        let matrixSize = 4;
+        let isAutoPlaying = false;
+        let autoPlayInterval;
+        
+        // DOM元素
+        const matrixSizeInput = document.getElementById('matrix-size');
+        const generateMatrixBtn = document.getElementById('generate-matrix');
+        const startAlgorithmBtn = document.getElementById('start-algorithm');
+        const nextStepBtn = document.getElementById('next-step');
+        const autoPlayBtn = document.getElementById('auto-play');
+        const resetBtn = document.getElementById('reset');
+        const matrixDisplay = document.getElementById('matrix-display');
+        const stepDescription = document.getElementById('step-description');
+        const algorithmExplanation = document.getElementById('algorithm-explanation');
+        const resultDiv = document.getElementById('result');
+        const closureResult = document.getElementById('closure-result');
+        const setContent = document.getElementById('set-content');
+        
+        // 事件监听
+        generateMatrixBtn.addEventListener('click', generateRandomMatrix);
+        startAlgorithmBtn.addEventListener('click', startAlgorithm);
+        nextStepBtn.addEventListener('click', nextStep);
+        autoPlayBtn.addEventListener('click', toggleAutoPlay);
+        resetBtn.addEventListener('click', resetAlgorithm);
+        
+        // 生成随机矩阵
+        function generateRandomMatrix() {
+            matrixSize = parseInt(matrixSizeInput.value);
+            if (matrixSize < 2 || matrixSize > 10) {
+                alert('矩阵大小必须在2到10之间');
+                return;
+            }
+            
+            originalMatrix = [];
+            for (let i = 0; i < matrixSize; i++) {
+                originalMatrix[i] = [];
+                for (let j = 0; j < matrixSize; j++) {
+                    // 生成0或1，但1的概率较低，使矩阵更稀疏
+                    originalMatrix[i][j] = Math.random() < 0.3 ? 1 : 0;
+                }
+            }
+            
+            // 复制原始矩阵到当前矩阵
+            currentMatrix = JSON.parse(JSON.stringify(originalMatrix));
+            
+            displayMatrix();
+            resetAlgorithmState();
+            stepDescription.textContent = '矩阵已生成，点击"开始算法"按钮开始计算传递闭包';
+            algorithmExplanation.textContent = '';
+            resultDiv.style.display = 'none';
+            
+            startAlgorithmBtn.disabled = false;
+        }
+        
+        // 显示矩阵
+        function displayMatrix(highlightCol = -1, sourcePoints = [], targetPoints = [], newOnes = []) {
+            let tableHTML = '<table><tr><th></th>';
+            
+            // 表头
+            for (let i = 0; i < matrixSize; i++) {
+                tableHTML += `<th>${String.fromCharCode(65 + i)}</th>`;
+            }
+            tableHTML += '</tr>';
+            
+            // 矩阵内容
+            for (let i = 0; i < matrixSize; i++) {
+                tableHTML += `<tr><th>${String.fromCharCode(65 + i)}</th>`;
+                for (let j = 0; j < matrixSize; j++) {
+                    let cellClass = '';
+                    
+                    if (j === highlightCol) {
+                        cellClass = 'current-column';
+                    } else if (sourcePoints.includes(i) && j === highlightCol) {
+                        cellClass = 'source-points';
+                    } else if (i === highlightCol && targetPoints.includes(j)) {
+                        cellClass = 'target-points';
+                    }
+                    
+                    // 检查是否是新增的1
+                    const isNewOne = newOnes.some(coord => coord[0] === i && coord[1] === j);
+                    if (isNewOne) {
+                        cellClass += ' new-one';
+                    }
+                    
+                    tableHTML += `<td class="${cellClass}">${currentMatrix[i][j]}</td>`;
+                }
+                tableHTML += '</tr>';
+            }
+            tableHTML += '</table>';
+            
+            matrixDisplay.innerHTML = tableHTML;
+        }
+        
+        // 开始算法
+        function startAlgorithm() {
+            currentStep = 0;
+            // 重置为原始矩阵
+            currentMatrix = JSON.parse(JSON.stringify(originalMatrix));
+            displayMatrix();
+            stepDescription.textContent = '算法开始：将处理第一列（列A，点A作为桥梁）';
+            algorithmExplanation.textContent = 'Warshall算法通过检查每一列，寻找可以作为"桥梁"的点，更新可达性关系。';
+            
+            startAlgorithmBtn.disabled = true;
+            nextStepBtn.disabled = false;
+            autoPlayBtn.disabled = false;
+            resetBtn.disabled = false;
+        }
+        
+        // 下一步 - 修正关键错误：移除 i !== j 的条件
+        function nextStep() {
+            if (currentStep >= matrixSize) {
+                finishAlgorithm();
+                return;
+            }
+            
+            const k = currentStep; // 当前处理的列索引（桥梁点）
+            const newOnes = [];
+            
+            // 高亮当前列
+            displayMatrix(k);
+            
+            // 查找当前列中为1的行（可以到达点k的点）
+            const sourcePoints = [];
+            for (let i = 0; i < matrixSize; i++) {
+                if (currentMatrix[i][k] === 1) {
+                    sourcePoints.push(i);
+                }
+            }
+            
+            // 查找第k行中为1的列（点k可以到达的点）
+            const targetPoints = [];
+            for (let j = 0; j < matrixSize; j++) {
+                if (currentMatrix[k][j] === 1) {
+                    targetPoints.push(j);
+                }
+            }
+            
+            stepDescription.textContent = `处理第${k+1}列（列${String.fromCharCode(65 + k)}，点${String.fromCharCode(65 + k)}作为桥梁）`;
+            
+            let explanation = '';
+            
+            if (sourcePoints.length > 0) {
+                explanation += `在列${String.fromCharCode(65 + k)}中，行${sourcePoints.map(r => String.fromCharCode(65 + r)).join(', ')}有1，`;
+                explanation += `表示点${sourcePoints.map(r => String.fromCharCode(65 + r)).join(', ')}可以到达点${String.fromCharCode(65 + k)}。<br>`;
+            } else {
+                explanation += `在列${String.fromCharCode(65 + k)}中没有1，表示没有点可以到达点${String.fromCharCode(65 + k)}。<br>`;
+            }
+            
+            if (targetPoints.length > 0) {
+                explanation += `在行${String.fromCharCode(65 + k)}中，列${targetPoints.map(c => String.fromCharCode(65 + c)).join(', ')}有1，`;
+                explanation += `表示点${String.fromCharCode(65 + k)}可以到达点${targetPoints.map(c => String.fromCharCode(65 + c)).join(', ')}。<br>`;
+            } else {
+                explanation += `在行${String.fromCharCode(65 + k)}中没有1，表示点${String.fromCharCode(65 + k)}不能到达任何其他点。<br>`;
+            }
+            
+            if (sourcePoints.length > 0 && targetPoints.length > 0) {
+                explanation += `因此，通过点${String.fromCharCode(65 + k)}作为桥梁，可以建立新的连接：`;
+                
+                // 修正关键错误：移除 i !== j 的条件，允许建立自环关系
+                for (const i of sourcePoints) {
+                    for (const j of targetPoints) {
+                        if (currentMatrix[i][j] === 0) { // 移除了 i !== j 的条件！
+                            currentMatrix[i][j] = 1;
+                            newOnes.push([i, j]);
+                            explanation += `${String.fromCharCode(65 + i)}→${String.fromCharCode(65 + j)} `;
+                        }
+                    }
+                }
+                
+                if (newOnes.length === 0) {
+                    explanation += '（没有新的连接需要添加）';
+                }
+            } else {
+                explanation += '因此没有新的连接需要添加。';
+            }
+            
+            algorithmExplanation.innerHTML = explanation;
+            
+            // 显示更新后的矩阵，高亮相关的点和新增的1
+            displayMatrix(k, sourcePoints, targetPoints, newOnes);
+            
+            currentStep++;
+            
+            if (currentStep >= matrixSize) {
+                nextStepBtn.disabled = true;
+                autoPlayBtn.disabled = true;
+                
+                if (!isAutoPlaying) {
+                    setTimeout(finishAlgorithm, 1000);
+                }
+            }
+        }
+        
+        // 生成传递闭包集合
+        function generateClosureSet() {
+            const relations = [];
+            
+            // 收集所有关系对
+            for (let i = 0; i < matrixSize; i++) {
+                for (let j = 0; j < matrixSize; j++) {
+                    if (currentMatrix[i][j] === 1) {
+                        relations.push({
+                            from: String.fromCharCode(65 + i),
+                            to: String.fromCharCode(65 + j),
+                            isOriginal: originalMatrix[i][j] === 1
+                        });
+                    }
+                }
+            }
+            
+            // 按字母顺序排序
+            relations.sort((a, b) => {
+                if (a.from !== b.from) return a.from.localeCompare(b.from);
+                return a.to.localeCompare(b.to);
+            });
+            
+            return relations;
+        }
+        
+        // 完成算法
+        function finishAlgorithm() {
+            displayMatrix(); // 清除高亮
+            stepDescription.textContent = '算法完成！已计算出传递闭包。';
+            algorithmExplanation.textContent = '传递闭包矩阵显示了所有点对之间的可达性关系。';
+            
+            // 显示结果矩阵
+            resultDiv.style.display = 'block';
+            let resultHTML = '<table><tr><th></th>';
+            
+            // 表头
+            for (let i = 0; i < matrixSize; i++) {
+                resultHTML += `<th>${String.fromCharCode(65 + i)}</th>`;
+            }
+            resultHTML += '</tr>';
+            
+            // 矩阵内容
+            for (let i = 0; i < matrixSize; i++) {
+                resultHTML += `<tr><th>${String.fromCharCode(65 + i)}</th>`;
+                for (let j = 0; j < matrixSize; j++) {
+                    resultHTML += `<td>${currentMatrix[i][j]}</td>`;
+                }
+                resultHTML += '</tr>';
+            }
+            resultHTML += '</table>';
+            
+            closureResult.innerHTML = resultHTML;
+            
+            // 显示传递闭包集合
+            const relations = generateClosureSet();
+            let setHTML = '';
+            
+            if (relations.length > 0) {
+                setHTML += '<p>传递闭包包含以下有序对：</p>';
+                
+                // 按源点分组显示
+                const groupedRelations = {};
+                relations.forEach(rel => {
+                    if (!groupedRelations[rel.from]) {
+                        groupedRelations[rel.from] = [];
+                    }
+                    groupedRelations[rel.from].push(rel);
+                });
+                
+                // 为每个源点创建一行
+                Object.keys(groupedRelations).sort().forEach(from => {
+                    const targets = groupedRelations[from];
+                    const targetList = targets.map(rel => {
+                        const style = rel.isOriginal ? '' : 'style="color: #e74c3c; font-weight: bold;"';
+                        return `<span ${style}>&lt;${rel.from}, ${rel.to}&gt;</span>`;
+                    }).join(', ');
+                    
+                    setHTML += `<div class="set-item">${targetList}</div>`;
+                });
+                
+                setHTML += `<p><strong>总共有 ${relations.length} 个有序对</strong></p>`;
+            } else {
+                setHTML = '<p>传递闭包为空集</p>';
+            }
+            
+            setContent.innerHTML = setHTML;
+        }
+        
+        // 切换自动播放
+        function toggleAutoPlay() {
+            if (isAutoPlaying) {
+                // 停止自动播放
+                clearInterval(autoPlayInterval);
+                isAutoPlaying = false;
+                autoPlayBtn.textContent = '自动播放';
+                nextStepBtn.disabled = false;
+            } else {
+                // 开始自动播放
+                isAutoPlaying = true;
+                autoPlayBtn.textContent = '停止播放';
+                nextStepBtn.disabled = true;
+                
+                autoPlayInterval = setInterval(() => {
+                    if (currentStep < matrixSize) {
+                        nextStep();
+                    } else {
+                        toggleAutoPlay(); // 算法完成，停止自动播放
+                    }
+                }, 2000);
+            }
+        }
+        
+        // 重置算法状态
+        function resetAlgorithmState() {
+            currentStep = 0;
+            isAutoPlaying = false;
+            clearInterval(autoPlayInterval);
+            autoPlayBtn.textContent = '自动播放';
+            
+            startAlgorithmBtn.disabled = true;
+            nextStepBtn.disabled = true;
+            autoPlayBtn.disabled = true;
+            resetBtn.disabled = true;
+        }
+        
+        // 重置算法
+        function resetAlgorithm() {
+            if (isAutoPlaying) {
+                toggleAutoPlay();
+            }
+            
+            // 重置为原始矩阵
+            currentMatrix = JSON.parse(JSON.stringify(originalMatrix));
+            displayMatrix();
+            resetAlgorithmState();
+            
+            stepDescription.textContent = '算法已重置，可以重新开始';
+            algorithmExplanation.textContent = '';
+            resultDiv.style.display = 'none';
+           
+            startAlgorithmBtn.disabled = false;
+        }
+        
+        // 初始化
+        generateRandomMatrix();
+    </script>
+</body>
+</html>
